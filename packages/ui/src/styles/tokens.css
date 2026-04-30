@@ -1,0 +1,73 @@
+:root {
+  --gm-bg-canvas: #0a0a0f;
+  --gm-bg-surface: #13131f;
+  --gm-bg-surface-2: #1c1c2e;
+  --gm-bg-overlay: rgba(10, 10, 15, 0.92);
+
+  --gm-border: #2a2a3d;
+  --gm-border-active: #7c6af7;
+
+  --gm-text-primary: #e8e8f0;
+  --gm-text-secondary: #8888a8;
+  --gm-text-muted: #44445a;
+  --gm-text-code: #a8d8a0;
+
+  --gm-accent: #7c6af7;
+  --gm-accent-hover: #9580ff;
+  --gm-accent-muted: rgba(124, 106, 247, 0.15);
+
+  --gm-node-file: #3d6cb5;
+  --gm-node-file-hover: #5a8fd6;
+  --gm-node-fn: #c07a3d;
+  --gm-node-fn-hover: #e09550;
+  --gm-node-selected: #7c6af7;
+
+  --gm-edge-import: #2a2a4d;
+  --gm-edge-call: #2a3d2a;
+  --gm-edge-contains: #1e1e30;
+  --gm-edge-active: #5a5a8a;
+
+  --gm-decay-low: #3d6cb5;
+  --gm-decay-mid: #c09a3d;
+  --gm-decay-high: #c0503d;
+
+  --gm-stranger: #00ffcc;
+  --gm-stranger-glow: rgba(0, 255, 204, 0.35);
+
+  --gm-control-bg: #1c1c2e;
+  --gm-control-hover: #2a2a3d;
+  --gm-control-radius: 6px;
+
+  --gm-font-ui: "Inter", system-ui, sans-serif;
+  --gm-font-code: "JetBrains Mono", "Fira Code", monospace;
+  --gm-font-size-xs: 11px;
+  --gm-font-size-sm: 12px;
+  --gm-font-size-base: 13px;
+  --gm-font-size-lg: 15px;
+
+  --gm-transition-fast: 120ms ease;
+  --gm-transition-base: 200ms ease;
+}
+
+@keyframes gm-pulse-danger {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px var(--gm-stranger-glow));
+    opacity: 1;
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--gm-stranger));
+    opacity: 0.85;
+  }
+}
+
+@keyframes gm-select-flash {
+  0% {
+    r: 0;
+    opacity: 0.8;
+  }
+  100% {
+    r: 24px;
+    opacity: 0;
+  }
+}
