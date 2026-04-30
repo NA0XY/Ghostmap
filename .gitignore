@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+.next/
+out/
+.turbo/
+
+# Ghostmap cache
+.ghostmap/
+
+# Test outputs
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Render / deployment
+*.log
