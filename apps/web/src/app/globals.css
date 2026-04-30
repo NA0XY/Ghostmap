@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "@ghostmap/ui/src/styles/tokens.css";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap");
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--gm-bg-canvas);
+  color: var(--gm-text-primary);
+  font-family: var(--gm-font-ui);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--gm-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--gm-accent-hover);
+}
+
+::selection {
+  background: var(--gm-accent-muted);
+  color: var(--gm-text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gm-bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gm-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gm-text-muted);
+}
