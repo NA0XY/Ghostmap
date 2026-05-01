@@ -16,7 +16,7 @@ export default function LoginPage({ searchParams }: LoginPageProps): React.React
   const redirectTo = searchParams.redirectTo ?? "/dashboard";
   const errorMessage =
     searchParams.error === "missing_code"
-      ? "GitHub sign-in was cancelled or failed. Please try again."
+      ? "Sign-in was cancelled or failed. Please try again."
       : searchParams.error
         ? decodeURIComponent(searchParams.error)
         : null;
@@ -106,11 +106,13 @@ export default function LoginPage({ searchParams }: LoginPageProps): React.React
             background: "var(--gm-bg-surface-2)",
             border: "1px solid var(--gm-border)",
             borderRadius: "var(--gm-control-radius)",
-            display: "flex",
-            justifyContent: "center",
+            display: "grid",
+            gap: 10,
+            justifyItems: "center",
           }}
         >
-          <LoginButton redirectTo={redirectTo} />
+          <LoginButton provider="github" redirectTo={redirectTo} />
+          <LoginButton provider="google" redirectTo={redirectTo} />
         </div>
 
         <div
@@ -121,7 +123,7 @@ export default function LoginPage({ searchParams }: LoginPageProps): React.React
             lineHeight: 1.5,
           }}
         >
-          We only request read access to your public profile and email. We never read your code.
+          We only request access to your profile and email. We never read your code.
         </div>
       </div>
     </div>

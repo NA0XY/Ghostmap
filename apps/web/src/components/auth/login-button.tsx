@@ -4,11 +4,13 @@ import React from "react";
 import { createClient } from "../../lib/supabase/client";
 
 interface LoginButtonProps {
+  provider?: "github" | "google";
   redirectTo?: string;
   className?: string;
 }
 
 export function LoginButton({
+  provider = "github",
   redirectTo = "/dashboard",
   className,
 }: LoginButtonProps): React.ReactElement {
@@ -21,12 +23,18 @@ export function LoginButton({
 
     try {
       const supabase = createClient();
+      const options =
+        provider === "github"
+          ? {
+              redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+              scopes: "read:user user:email",
+            }
+          : {
+              redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+            };
       const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
-          scopes: "read:user user:email",
-        },
+        provider,
+        options,
       });
 
       if (authError) {
@@ -42,7 +50,11 @@ export function LoginButton({
   return (
     <div>
       <button onClick={handleLogin} disabled={isLoading} className={className} aria-busy={isLoading}>
-        {isLoading ? "Redirecting…" : "Sign in with GitHub"}
+        {isLoading
+          ? "Redirecting…"
+          : provider === "github"
+            ? "Sign in with GitHub"
+            : "Sign in with Google"}
       </button>
       {error && (
         <p
