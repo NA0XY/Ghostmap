@@ -48,6 +48,8 @@ export interface GraphNodeMetadata {
   readonly decayScore?: number;
   readonly strangerDanger?: boolean;
   readonly ownerEmail?: string;
+  readonly ownerColor?: string;
+  readonly ownerName?: string;
 }
 
 export interface GraphNode {
