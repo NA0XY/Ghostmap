@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "../../../../../lib/supabase/server";
+import { createServiceRoleClient } from "../../../../../lib/supabase/service-role";
 import type { JobClassification, JobStatus } from "../../../../../lib/supabase/database.types";
 
 export const runtime = "edge";
@@ -28,11 +29,13 @@ export async function GET(
   }
 
   const supabase = await createServerSupabaseClient();
+  const serviceRoleClient = createServiceRoleClient();
+  const readClient = serviceRoleClient ?? supabase;
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const queryResult = await supabase
+  const queryResult = await readClient
     .from("jobs")
     .select(
       "id, user_id, status, classification, queue_position, error_message, created_at, started_at, completed_at, repo_owner, repo_name",
@@ -46,7 +49,7 @@ export async function GET(
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
-  if (user && job.user_id !== null && job.user_id !== user.id) {
+  if (job.user_id !== null && (!user || job.user_id !== user.id)) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient } from "../../../../../lib/supabase/server";
+import { createServiceRoleClient } from "../../../../../lib/supabase/service-role";
 import type { JobStatus } from "../../../../../lib/supabase/database.types";
 
 export const runtime = "edge";
@@ -25,11 +26,13 @@ export async function GET(
   }
 
   const supabase = await createServerSupabaseClient();
+  const serviceRoleClient = createServiceRoleClient();
+  const readClient = serviceRoleClient ?? supabase;
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const jobQuery = await supabase
+  const jobQuery = await readClient
     .from("jobs")
     .select("id, user_id, status")
     .eq("id", jobId)
@@ -41,7 +44,7 @@ export async function GET(
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
-  if (user && job.user_id !== null && job.user_id !== user.id) {
+  if (job.user_id !== null && (!user || job.user_id !== user.id)) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
@@ -52,7 +55,7 @@ export async function GET(
     );
   }
 
-  const resultQuery = await supabase
+  const resultQuery = await readClient
     .from("results")
     .select("graph_json, expires_at")
     .eq("job_id", jobId)

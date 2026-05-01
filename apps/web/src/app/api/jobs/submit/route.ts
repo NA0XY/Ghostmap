@@ -3,8 +3,8 @@ import { classifyJob, getMaxFileCount } from "../../../../lib/jobs/classify";
 import { parseGitHubUrl } from "../../../../lib/github/validate-url";
 import { fetchRepoMeta, GitHubError } from "../../../../lib/github/repo-meta";
 import { createServerSupabaseClient } from "../../../../lib/supabase/server";
+import { createServiceRoleClient } from "../../../../lib/supabase/service-role";
 import { checkUsageLimit, incrementUsage } from "../../../../lib/jobs/limits";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "../../../../lib/supabase/database.types";
 
 export const runtime = "edge";
@@ -29,21 +29,6 @@ interface JobsInsertBuilder {
       single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
     };
   };
-}
-
-function createServiceRoleClient(): SupabaseClient<Database> | null {
-  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
-  const serviceRoleKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!url || !serviceRoleKey) {
-    return null;
-  }
-
-  return createClient<Database>(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

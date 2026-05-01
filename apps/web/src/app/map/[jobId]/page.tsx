@@ -6,6 +6,7 @@ import { MapShell } from "../../../components/map/map-shell";
 import { JobStatusPoller } from "../../../components/queue/job-status-poller";
 import type { JobClassification, JobStatus } from "../../../lib/supabase/database.types";
 import { createServerSupabaseClient } from "../../../lib/supabase/server";
+import { createServiceRoleClient } from "../../../lib/supabase/service-role";
 
 export const runtime = "edge";
 
@@ -36,11 +37,13 @@ export async function generateMetadata({ params }: MapPageProps): Promise<Metada
 export default async function MapPage({ params }: MapPageProps): Promise<React.ReactElement> {
   const { jobId } = params;
   const supabase = await createServerSupabaseClient();
+  const serviceRoleClient = createServiceRoleClient();
+  const readClient = serviceRoleClient ?? supabase;
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const jobQuery = await supabase
+  const jobQuery = await readClient
     .from("jobs")
     .select("id, user_id, status, repo_owner, repo_name, classification")
     .eq("id", jobId)
@@ -72,7 +75,7 @@ export default async function MapPage({ params }: MapPageProps): Promise<React.R
     );
   }
 
-  const resultQuery = await supabase
+  const resultQuery = await readClient
     .from("results")
     .select("graph_json, expires_at")
     .eq("job_id", jobId)
