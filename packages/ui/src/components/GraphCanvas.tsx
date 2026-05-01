@@ -106,7 +106,19 @@ export function GraphCanvas({
     return map;
   }, [simulationNodes]);
   const membranes = useMemo(() => {
+    interface ClusterDraft {
+      fileId: string;
+      clusterNodeIds: string[];
+      points: Array<{ x: number; y: number }>;
+      center: { x: number; y: number };
+      envelopeRadius: number;
+      paddingScale: number;
+      hidden: boolean;
+    }
+
     const layers: Array<{ key: string; path: string; fill: string; stroke: string }> = [];
+    const drafts: ClusterDraft[] = [];
+
     for (const [fileId, functionIds] of fileChildrenById) {
       if (functionIds.length === 0) {
         continue;
@@ -122,17 +134,119 @@ export function GraphCanvas({
         continue;
       }
 
-      const path = buildClusterMembranePath(points);
+      const center = points.reduce(
+        (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
+        { x: 0, y: 0 },
+      );
+      center.x /= points.length;
+      center.y /= points.length;
+
+      const maxPointDistance = points.reduce((max, point) => {
+        const d = Math.hypot(point.x - center.x, point.y - center.y);
+        return Math.max(max, d);
+      }, 0);
+
+      let envelopeRadius = maxPointDistance + 44;
+      if (points.length === 1) {
+        envelopeRadius = 48;
+      } else if (points.length === 2) {
+        const [a, b] = points;
+        if (a && b) {
+          envelopeRadius = Math.hypot(a.x - b.x, a.y - b.y) / 2 + 40;
+        }
+      }
+
+      drafts.push({
+        fileId,
+        clusterNodeIds,
+        points,
+        center,
+        envelopeRadius,
+        paddingScale: 1,
+        hidden: false,
+      });
+    }
+
+    const minScale = 0.45;
+    const gap = 8;
+
+    for (let pass = 0; pass < 8; pass += 1) {
+      for (let i = 0; i < drafts.length; i += 1) {
+        for (let j = i + 1; j < drafts.length; j += 1) {
+          const a = drafts[i];
+          const b = drafts[j];
+          if (!a || !b || a.hidden || b.hidden) {
+            continue;
+          }
+
+          const distance = Math.hypot(a.center.x - b.center.x, a.center.y - b.center.y);
+          if (distance <= 0.001) {
+            continue;
+          }
+
+          const rA = a.envelopeRadius * a.paddingScale;
+          const rB = b.envelopeRadius * b.paddingScale;
+          const maxAllowed = distance - gap;
+          if (rA + rB <= maxAllowed) {
+            continue;
+          }
+
+          const overflow = rA + rB - maxAllowed;
+          const total = rA + rB;
+          if (total <= 0.001) {
+            continue;
+          }
+
+          const reduceA = (overflow * rA) / total;
+          const reduceB = overflow - reduceA;
+
+          const newRA = Math.max(a.envelopeRadius * minScale, rA - reduceA);
+          const newRB = Math.max(b.envelopeRadius * minScale, rB - reduceB);
+          a.paddingScale = newRA / a.envelopeRadius;
+          b.paddingScale = newRB / b.envelopeRadius;
+        }
+      }
+    }
+
+    for (let i = 0; i < drafts.length; i += 1) {
+      for (let j = i + 1; j < drafts.length; j += 1) {
+        const a = drafts[i];
+        const b = drafts[j];
+        if (!a || !b || a.hidden || b.hidden) {
+          continue;
+        }
+
+        const distance = Math.hypot(a.center.x - b.center.x, a.center.y - b.center.y);
+        const rA = a.envelopeRadius * a.paddingScale;
+        const rB = b.envelopeRadius * b.paddingScale;
+        if (distance + 1 >= rA + rB + gap) {
+          continue;
+        }
+
+        if (a.envelopeRadius <= b.envelopeRadius) {
+          a.hidden = true;
+        } else {
+          b.hidden = true;
+        }
+      }
+    }
+
+    for (const draft of drafts) {
+      if (draft.hidden) {
+        continue;
+      }
+
+      const path = buildClusterMembranePath(draft.points, { paddingScale: draft.paddingScale });
       if (!path) {
         continue;
       }
 
-      const paletteIndex = fileIndexById.get(fileId) ?? 0;
+      const paletteIndex = fileIndexById.get(draft.fileId) ?? 0;
       const color = fileColor(paletteIndex);
-      const clusterHasFocus = clusterNodeIds.some(
+      const clusterHasFocus = draft.clusterNodeIds.some(
         (nodeId) => nodeId === selection.selectedNodeId || nodeId === hoveredNodeId,
       );
-      const clusterIsSelectionRelated = clusterNodeIds.some(
+      const clusterIsSelectionRelated = draft.clusterNodeIds.some(
         (nodeId) => nodeId === selection.selectedNodeId || selection.highlightedNodeIds.has(nodeId),
       );
 
@@ -148,7 +262,7 @@ export function GraphCanvas({
       }
 
       layers.push({
-        key: `membrane-${fileId}`,
+        key: `membrane-${draft.fileId}`,
         path,
         fill: hexAlpha(color, fillAlpha),
         stroke: hexAlpha(color, strokeAlpha),

@@ -3,6 +3,10 @@ export interface Point {
   y: number;
 }
 
+interface MembraneOptions {
+  paddingScale?: number;
+}
+
 const SINGLE_NODE_RADIUS = 48;
 const TWO_NODE_PADDING = 40;
 const HULL_PADDING = 44;
@@ -16,19 +20,24 @@ export function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${rgb.r},${rgb.g},${rgb.b},${clamp(alpha, 0, 1)})`;
 }
 
-export function buildClusterMembranePath(points: Point[]): string | null {
+export function buildClusterMembranePath(points: Point[], options?: MembraneOptions): string | null {
+  const paddingScale = clamp(options?.paddingScale ?? 1, 0.1, 1.5);
+  const singleRadius = SINGLE_NODE_RADIUS * paddingScale;
+  const twoNodePadding = TWO_NODE_PADDING * paddingScale;
+  const hullPadding = HULL_PADDING * paddingScale;
+
   const validPoints = points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
   if (validPoints.length === 0) {
     return null;
   }
   if (validPoints.length === 1) {
     const single = validPoints[0];
-    return single ? circlePath(single, SINGLE_NODE_RADIUS) : null;
+    return single ? circlePath(single, singleRadius) : null;
   }
   if (validPoints.length === 2) {
     const first = validPoints[0];
     const second = validPoints[1];
-    return first && second ? stadiumPath(first, second, TWO_NODE_PADDING) : null;
+    return first && second ? stadiumPath(first, second, twoNodePadding) : null;
   }
 
   const hull = convexHull(validPoints);
@@ -37,15 +46,15 @@ export function buildClusterMembranePath(points: Point[]): string | null {
   }
   if (hull.length === 1) {
     const single = hull[0];
-    return single ? circlePath(single, SINGLE_NODE_RADIUS) : null;
+    return single ? circlePath(single, singleRadius) : null;
   }
   if (hull.length === 2) {
     const first = hull[0];
     const second = hull[1];
-    return first && second ? stadiumPath(first, second, TWO_NODE_PADDING) : null;
+    return first && second ? stadiumPath(first, second, twoNodePadding) : null;
   }
 
-  const expanded = expandHull(hull, HULL_PADDING);
+  const expanded = expandHull(hull, hullPadding);
   return smoothClosedBezierPath(expanded, SMOOTHING_TENSION);
 }
 
