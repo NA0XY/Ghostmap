@@ -110,10 +110,7 @@ export function GraphCanvas({
       fileId: string;
       clusterNodeIds: string[];
       points: Array<{ x: number; y: number }>;
-      center: { x: number; y: number };
-      envelopeRadius: number;
       paddingScale: number;
-      offset: { x: number; y: number };
     }
 
     const layers: Array<{ key: string; path: string; fill: string; stroke: string }> = [];
@@ -134,103 +131,16 @@ export function GraphCanvas({
         continue;
       }
 
-      const center = points.reduce(
-        (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
-        { x: 0, y: 0 },
-      );
-      center.x /= points.length;
-      center.y /= points.length;
-
-      const maxPointDistance = points.reduce((max, point) => {
-        const d = Math.hypot(point.x - center.x, point.y - center.y);
-        return Math.max(max, d);
-      }, 0);
-
-      let envelopeRadius = maxPointDistance + 44;
-      if (points.length === 1) {
-        envelopeRadius = 48;
-      } else if (points.length === 2) {
-        const [a, b] = points;
-        if (a && b) {
-          envelopeRadius = Math.hypot(a.x - b.x, a.y - b.y) / 2 + 40;
-        }
-      }
-
       drafts.push({
         fileId,
         clusterNodeIds,
         points,
-        center,
-        envelopeRadius,
         paddingScale: 1,
-        offset: { x: 0, y: 0 },
       });
     }
 
-    const gap = 12;
-    const maxOffsetFactor = 2.8;
-    const repelPasses = 36;
-
-    for (let pass = 0; pass < repelPasses; pass += 1) {
-      for (let i = 0; i < drafts.length; i += 1) {
-        for (let j = i + 1; j < drafts.length; j += 1) {
-          const a = drafts[i];
-          const b = drafts[j];
-          if (!a || !b) {
-            continue;
-          }
-
-          const ax = a.center.x + a.offset.x;
-          const ay = a.center.y + a.offset.y;
-          const bx = b.center.x + b.offset.x;
-          const by = b.center.y + b.offset.y;
-          const dx = ax - bx;
-          const dy = ay - by;
-          let distance = Math.hypot(dx, dy);
-          let nx = 0;
-          let ny = 0;
-          if (distance <= 0.001) {
-            const angle = (i + j + 1) * 1.618;
-            nx = Math.cos(angle);
-            ny = Math.sin(angle);
-            distance = 0.001;
-          } else {
-            nx = dx / distance;
-            ny = dy / distance;
-          }
-
-          const rA = a.envelopeRadius * a.paddingScale;
-          const rB = b.envelopeRadius * b.paddingScale;
-          const overlap = rA + rB + gap - distance;
-          if (overlap <= 0) {
-            continue;
-          }
-
-          const totalRadius = rA + rB;
-          if (totalRadius <= 0.001) {
-            continue;
-          }
-
-          // Smaller clusters move more; larger clusters move less.
-          const moveA = (rB / totalRadius) * overlap * 0.6;
-          const moveB = (rA / totalRadius) * overlap * 0.6;
-          const maxOffsetA = Math.max(40, a.envelopeRadius * maxOffsetFactor);
-          const maxOffsetB = Math.max(40, b.envelopeRadius * maxOffsetFactor);
-
-          a.offset.x = clampOffset(a.offset.x + nx * moveA, maxOffsetA);
-          a.offset.y = clampOffset(a.offset.y + ny * moveA, maxOffsetA);
-          b.offset.x = clampOffset(b.offset.x - nx * moveB, maxOffsetB);
-          b.offset.y = clampOffset(b.offset.y - ny * moveB, maxOffsetB);
-        }
-      }
-    }
-
     for (const draft of drafts) {
-      const shiftedPoints = draft.points.map((point) => ({
-        x: point.x + draft.offset.x,
-        y: point.y + draft.offset.y,
-      }));
-      const path = buildClusterMembranePath(shiftedPoints, { paddingScale: draft.paddingScale });
+      const path = buildClusterMembranePath(draft.points, { paddingScale: draft.paddingScale });
       if (!path) {
         continue;
       }
@@ -272,10 +182,6 @@ export function GraphCanvas({
     selection.selectedNodeId,
     simulationNodeById,
   ]);
-
-  function clampOffset(value: number, maxAbs: number): number {
-    return Math.max(-maxAbs, Math.min(maxAbs, value));
-  }
 
   useEffect(() => {
     reheat();
