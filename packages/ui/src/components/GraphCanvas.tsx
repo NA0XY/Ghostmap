@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { GraphEdge, GraphNode } from "@ghostmap/core";
 import type { GraphCanvasProps, SimulationNode } from "../types/ui.js";
 import { useD3Simulation } from "../hooks/useD3Simulation.js";
 import { useGraphSelection } from "../hooks/useGraphSelection.js";
 import { useZoom } from "../hooks/useZoom.js";
-import { getEdgeColor, getEdgeOpacity, getNodeStyle } from "../utils/node-style.js";
+import { buildClusterMembranePath, hexAlpha } from "../utils/graphMembraneUtils.js";
+import { fileColor, getEdgeColor, getEdgeOpacity, getNodeStyle } from "../utils/node-style.js";
 import { searchNodes } from "../utils/search.js";
 
 function diamondPath(cx: number, cy: number, r: number): string {
@@ -41,6 +42,7 @@ export function GraphCanvas({
   const { simulationNodes, simulationLinks, isStabilized, reheat } = useD3Simulation(data, width, height);
   const { svgRef, containerRef, fitToScreen } = useZoom(width, height);
   const { selection, selectEdge, selectNode, clearSelection } = useGraphSelection();
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isStabilized && data.nodes.length > 0) {
@@ -54,6 +56,114 @@ export function GraphCanvas({
 
   const nodeMap = useMemo(() => new Map(data.nodes.map((node) => [node.id, node])), [data.nodes]);
   const edgeMap = useMemo(() => new Map(data.edges.map((edge) => [edge.id, edge])), [data.edges]);
+  const fileIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    let fileIndex = 0;
+    for (const node of data.nodes) {
+      if (node.type === "file") {
+        map.set(node.id, fileIndex);
+        fileIndex += 1;
+      }
+    }
+    return map;
+  }, [data.nodes]);
+  const parentFileByFunctionId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const edge of data.edges) {
+      if (edge.type === "contains") {
+        map.set(edge.target, edge.source);
+      }
+    }
+    return map;
+  }, [data.edges]);
+  const fileChildrenById = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const node of data.nodes) {
+      if (node.type === "file") {
+        map.set(node.id, []);
+      }
+    }
+    for (const edge of data.edges) {
+      if (edge.type !== "contains") {
+        continue;
+      }
+      const children = map.get(edge.source);
+      if (children) {
+        children.push(edge.target);
+      }
+    }
+    return map;
+  }, [data.edges, data.nodes]);
+  const nodeColorContext = useMemo(
+    () => ({ fileIndexById, parentFileByFunctionId }),
+    [fileIndexById, parentFileByFunctionId],
+  );
+  const simulationNodeById = useMemo(() => {
+    const map = new Map<string, SimulationNode>();
+    for (const node of simulationNodes) {
+      map.set(node.id, node);
+    }
+    return map;
+  }, [simulationNodes]);
+  const membranes = useMemo(() => {
+    const layers: Array<{ key: string; path: string; fill: string; stroke: string }> = [];
+    for (const [fileId, functionIds] of fileChildrenById) {
+      if (functionIds.length === 0) {
+        continue;
+      }
+
+      const clusterNodeIds = [fileId, ...functionIds];
+      const points = clusterNodeIds
+        .map((nodeId) => simulationNodeById.get(nodeId))
+        .filter((node): node is SimulationNode & { x: number; y: number } => Boolean(node && hasCoords(node)))
+        .map((node) => ({ x: node.x, y: node.y }));
+
+      if (points.length === 0) {
+        continue;
+      }
+
+      const path = buildClusterMembranePath(points);
+      if (!path) {
+        continue;
+      }
+
+      const paletteIndex = fileIndexById.get(fileId) ?? 0;
+      const color = fileColor(paletteIndex);
+      const clusterHasFocus = clusterNodeIds.some(
+        (nodeId) => nodeId === selection.selectedNodeId || nodeId === hoveredNodeId,
+      );
+      const clusterIsSelectionRelated = clusterNodeIds.some(
+        (nodeId) => nodeId === selection.selectedNodeId || selection.highlightedNodeIds.has(nodeId),
+      );
+
+      let fillAlpha = 0.07;
+      let strokeAlpha = 0.3;
+      if (hasSelection && !clusterIsSelectionRelated) {
+        fillAlpha = 0.03;
+        strokeAlpha = 0.1;
+      }
+      if (clusterHasFocus) {
+        fillAlpha = 0.13;
+        strokeAlpha = 0.55;
+      }
+
+      layers.push({
+        key: `membrane-${fileId}`,
+        path,
+        fill: hexAlpha(color, fillAlpha),
+        stroke: hexAlpha(color, strokeAlpha),
+      });
+    }
+    return layers;
+  }, [
+    fileChildrenById,
+    fileIndexById,
+    hasSelection,
+    hoveredNodeId,
+    selection.highlightedNodeIds,
+    selection.selectedNodeId,
+    simulationNodeById,
+  ]);
 
   useEffect(() => {
     reheat();
@@ -132,11 +242,7 @@ export function GraphCanvas({
     >
       <defs>
         <marker id="gm-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path
-            d="M 0 0 L 6 3 L 0 6 Z"
-            fill="var(--gm-edge-active)"
-            opacity={0.6}
-          />
+          <path d="M 0 0 L 6 3 L 0 6 Z" fill="var(--gm-edge-active)" opacity={0.85} />
         </marker>
         <filter id="gm-danger-glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="blur" />
@@ -148,6 +254,23 @@ export function GraphCanvas({
       </defs>
 
       <g ref={containerRef}>
+        <g className="gm-membranes">
+          {membranes.map((membrane) => (
+            <path
+              key={membrane.key}
+              d={membrane.path}
+              fill={membrane.fill}
+              stroke={membrane.stroke}
+              strokeWidth="var(--gm-membrane-stroke-width)"
+              strokeDasharray="none"
+              style={{
+                pointerEvents: "none",
+                transition: "fill var(--gm-transition-base), stroke var(--gm-transition-base)",
+              }}
+            />
+          ))}
+        </g>
+
         <g className="gm-edges">
           {simulationLinks.map((link) => {
             const line = lineFromLink(link.source, link.target);
@@ -171,7 +294,7 @@ export function GraphCanvas({
                 x2={line.target.x}
                 y2={line.target.y}
                 stroke={color}
-                strokeWidth={isHighlighted ? 1.5 : 0.75}
+                strokeWidth={isHighlighted ? 2.2 : 1.2}
                 strokeOpacity={opacity}
                 markerEnd={link.type === "import" ? "url(#gm-arrow)" : undefined}
                 style={{ cursor: "pointer", transition: "stroke-opacity var(--gm-transition-fast)" }}
@@ -202,6 +325,8 @@ export function GraphCanvas({
               isHighlighted,
               isSearchMatch,
               isDimmed,
+              hoveredNodeId === node.id,
+              nodeColorContext,
             );
 
             const sharedProps = {
@@ -218,6 +343,12 @@ export function GraphCanvas({
               } as React.CSSProperties,
               onClick: (event: React.MouseEvent) => {
                 handleNodeClick(node.id, event);
+              },
+              onMouseEnter: () => {
+                setHoveredNodeId(node.id);
+              },
+              onMouseLeave: () => {
+                setHoveredNodeId((current) => (current === node.id ? null : current));
               },
               role: "button" as const,
               "aria-label": `${node.type}: ${node.label}`,

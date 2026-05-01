@@ -1,5 +1,5 @@
 :root {
-  --gm-bg-canvas: #0a0a0f;
+  --gm-bg-canvas: #07070d;
   --gm-bg-surface: #13131f;
   --gm-bg-surface-2: #1c1c2e;
   --gm-bg-overlay: rgba(10, 10, 15, 0.92);
@@ -16,16 +16,16 @@
   --gm-accent-hover: #9580ff;
   --gm-accent-muted: rgba(124, 106, 247, 0.15);
 
-  --gm-node-file: #3d6cb5;
-  --gm-node-file-hover: #5a8fd6;
-  --gm-node-fn: #c07a3d;
-  --gm-node-fn-hover: #e09550;
   --gm-node-selected: #7c6af7;
 
-  --gm-edge-import: #2a2a4d;
-  --gm-edge-call: #2a3d2a;
+  --gm-edge-import: rgba(149, 128, 255, 0.55);
+  --gm-edge-call: rgba(46, 196, 160, 0.45);
   --gm-edge-contains: #1e1e30;
-  --gm-edge-active: #5a5a8a;
+  --gm-edge-active: #c8b8ff;
+
+  --gm-membrane-fill-alpha: 0.07;
+  --gm-membrane-stroke-alpha: 0.3;
+  --gm-membrane-stroke-width: 1.5px;
 
   --gm-decay-low: #3d6cb5;
   --gm-decay-mid: #c09a3d;

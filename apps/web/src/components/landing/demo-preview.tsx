@@ -29,11 +29,11 @@ export function DemoPreview(): React.ReactElement {
         <line x1="520" y1="180" x2="700" y2="130" stroke="var(--gm-edge-import)" strokeOpacity="0.7" />
         <line x1="340" y1="120" x2="340" y2="240" stroke="var(--gm-edge-contains)" strokeOpacity="0.7" />
 
-        <circle cx="170" cy="170" r="16" fill="var(--gm-node-file)" />
-        <circle cx="340" cy="120" r="20" fill="var(--gm-node-file-hover)" />
-        <circle cx="520" cy="180" r="15" fill="var(--gm-node-file)" />
+        <circle cx="170" cy="170" r="16" fill="#4d8ef0" />
+        <circle cx="340" cy="120" r="20" fill="#e05c8a" />
+        <circle cx="520" cy="180" r="15" fill="#2ec4a0" />
         <circle cx="700" cy="130" r="18" fill="var(--gm-node-selected)" />
-        <path d="M 340 226 L 354 240 L 340 254 L 326 240 Z" fill="var(--gm-node-fn)" />
+        <path d="M 340 226 L 354 240 L 340 254 L 326 240 Z" fill="rgb(189, 146, 181)" />
 
         <text x="170" y="205" textAnchor="middle" fill="var(--gm-text-secondary)" fontFamily="var(--gm-font-code)" fontSize="11">src/index.ts</text>
         <text x="340" y="88" textAnchor="middle" fill="var(--gm-text-primary)" fontFamily="var(--gm-font-code)" fontSize="11">src/map/shell.tsx</text>
