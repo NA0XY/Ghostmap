@@ -81,6 +81,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build core
+        run: pnpm --filter @ghostmap/core build
+
+      - name: Build ui
+        run: pnpm --filter @ghostmap/ui build
+
       - name: Build web for Cloudflare
         run: pnpm --filter @ghostmap/web build:cf
         env:
