@@ -113,7 +113,7 @@ export function GraphCanvas({
       center: { x: number; y: number };
       envelopeRadius: number;
       paddingScale: number;
-      hidden: boolean;
+      offset: { x: number; y: number };
     }
 
     const layers: Array<{ key: string; path: string; fill: string; stroke: string }> = [];
@@ -163,30 +163,30 @@ export function GraphCanvas({
         center,
         envelopeRadius,
         paddingScale: 1,
-        hidden: false,
+        offset: { x: 0, y: 0 },
       });
     }
 
-    const minScale = 0.45;
-    const gap = 8;
+    const minScale = 0.35;
+    const gap = 10;
 
-    for (let pass = 0; pass < 8; pass += 1) {
+    for (let pass = 0; pass < 10; pass += 1) {
       for (let i = 0; i < drafts.length; i += 1) {
         for (let j = i + 1; j < drafts.length; j += 1) {
           const a = drafts[i];
           const b = drafts[j];
-          if (!a || !b || a.hidden || b.hidden) {
+          if (!a || !b) {
             continue;
           }
 
-          const distance = Math.hypot(a.center.x - b.center.x, a.center.y - b.center.y);
-          if (distance <= 0.001) {
-            continue;
-          }
+          const dx = a.center.x - b.center.x;
+          const dy = a.center.y - b.center.y;
+          const distance = Math.hypot(dx, dy);
+          const safeDistance = Math.max(distance, 0.001);
 
           const rA = a.envelopeRadius * a.paddingScale;
           const rB = b.envelopeRadius * b.paddingScale;
-          const maxAllowed = distance - gap;
+          const maxAllowed = safeDistance - gap;
           if (rA + rB <= maxAllowed) {
             continue;
           }
@@ -208,35 +208,57 @@ export function GraphCanvas({
       }
     }
 
-    for (let i = 0; i < drafts.length; i += 1) {
-      for (let j = i + 1; j < drafts.length; j += 1) {
-        const a = drafts[i];
-        const b = drafts[j];
-        if (!a || !b || a.hidden || b.hidden) {
-          continue;
-        }
+    const maxOffset = 36;
+    for (let pass = 0; pass < 12; pass += 1) {
+      for (let i = 0; i < drafts.length; i += 1) {
+        for (let j = i + 1; j < drafts.length; j += 1) {
+          const a = drafts[i];
+          const b = drafts[j];
+          if (!a || !b) {
+            continue;
+          }
 
-        const distance = Math.hypot(a.center.x - b.center.x, a.center.y - b.center.y);
-        const rA = a.envelopeRadius * a.paddingScale;
-        const rB = b.envelopeRadius * b.paddingScale;
-        if (distance + 1 >= rA + rB + gap) {
-          continue;
-        }
+          const ax = a.center.x + a.offset.x;
+          const ay = a.center.y + a.offset.y;
+          const bx = b.center.x + b.offset.x;
+          const by = b.center.y + b.offset.y;
+          const dx = ax - bx;
+          const dy = ay - by;
+          let distance = Math.hypot(dx, dy);
+          let nx = 0;
+          let ny = 0;
+          if (distance <= 0.001) {
+            const angle = (i + j + 1) * 1.618;
+            nx = Math.cos(angle);
+            ny = Math.sin(angle);
+            distance = 0.001;
+          } else {
+            nx = dx / distance;
+            ny = dy / distance;
+          }
 
-        if (a.envelopeRadius <= b.envelopeRadius) {
-          a.hidden = true;
-        } else {
-          b.hidden = true;
+          const rA = a.envelopeRadius * a.paddingScale;
+          const rB = b.envelopeRadius * b.paddingScale;
+          const overlap = rA + rB + gap - distance;
+          if (overlap <= 0) {
+            continue;
+          }
+
+          const push = overlap * 0.5;
+          a.offset.x = clampOffset(a.offset.x + nx * push, maxOffset);
+          a.offset.y = clampOffset(a.offset.y + ny * push, maxOffset);
+          b.offset.x = clampOffset(b.offset.x - nx * push, maxOffset);
+          b.offset.y = clampOffset(b.offset.y - ny * push, maxOffset);
         }
       }
     }
 
     for (const draft of drafts) {
-      if (draft.hidden) {
-        continue;
-      }
-
-      const path = buildClusterMembranePath(draft.points, { paddingScale: draft.paddingScale });
+      const shiftedPoints = draft.points.map((point) => ({
+        x: point.x + draft.offset.x,
+        y: point.y + draft.offset.y,
+      }));
+      const path = buildClusterMembranePath(shiftedPoints, { paddingScale: draft.paddingScale });
       if (!path) {
         continue;
       }
@@ -278,6 +300,10 @@ export function GraphCanvas({
     selection.selectedNodeId,
     simulationNodeById,
   ]);
+
+  function clampOffset(value: number, maxAbs: number): number {
+    return Math.max(-maxAbs, Math.min(maxAbs, value));
+  }
 
   useEffect(() => {
     reheat();
