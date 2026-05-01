@@ -167,49 +167,11 @@ export function GraphCanvas({
       });
     }
 
-    const minScale = 0.35;
-    const gap = 10;
+    const gap = 12;
+    const maxOffsetFactor = 2.8;
+    const repelPasses = 36;
 
-    for (let pass = 0; pass < 10; pass += 1) {
-      for (let i = 0; i < drafts.length; i += 1) {
-        for (let j = i + 1; j < drafts.length; j += 1) {
-          const a = drafts[i];
-          const b = drafts[j];
-          if (!a || !b) {
-            continue;
-          }
-
-          const dx = a.center.x - b.center.x;
-          const dy = a.center.y - b.center.y;
-          const distance = Math.hypot(dx, dy);
-          const safeDistance = Math.max(distance, 0.001);
-
-          const rA = a.envelopeRadius * a.paddingScale;
-          const rB = b.envelopeRadius * b.paddingScale;
-          const maxAllowed = safeDistance - gap;
-          if (rA + rB <= maxAllowed) {
-            continue;
-          }
-
-          const overflow = rA + rB - maxAllowed;
-          const total = rA + rB;
-          if (total <= 0.001) {
-            continue;
-          }
-
-          const reduceA = (overflow * rA) / total;
-          const reduceB = overflow - reduceA;
-
-          const newRA = Math.max(a.envelopeRadius * minScale, rA - reduceA);
-          const newRB = Math.max(b.envelopeRadius * minScale, rB - reduceB);
-          a.paddingScale = newRA / a.envelopeRadius;
-          b.paddingScale = newRB / b.envelopeRadius;
-        }
-      }
-    }
-
-    const maxOffset = 36;
-    for (let pass = 0; pass < 12; pass += 1) {
+    for (let pass = 0; pass < repelPasses; pass += 1) {
       for (let i = 0; i < drafts.length; i += 1) {
         for (let j = i + 1; j < drafts.length; j += 1) {
           const a = drafts[i];
@@ -244,11 +206,21 @@ export function GraphCanvas({
             continue;
           }
 
-          const push = overlap * 0.5;
-          a.offset.x = clampOffset(a.offset.x + nx * push, maxOffset);
-          a.offset.y = clampOffset(a.offset.y + ny * push, maxOffset);
-          b.offset.x = clampOffset(b.offset.x - nx * push, maxOffset);
-          b.offset.y = clampOffset(b.offset.y - ny * push, maxOffset);
+          const totalRadius = rA + rB;
+          if (totalRadius <= 0.001) {
+            continue;
+          }
+
+          // Smaller clusters move more; larger clusters move less.
+          const moveA = (rB / totalRadius) * overlap * 0.6;
+          const moveB = (rA / totalRadius) * overlap * 0.6;
+          const maxOffsetA = Math.max(40, a.envelopeRadius * maxOffsetFactor);
+          const maxOffsetB = Math.max(40, b.envelopeRadius * maxOffsetFactor);
+
+          a.offset.x = clampOffset(a.offset.x + nx * moveA, maxOffsetA);
+          a.offset.y = clampOffset(a.offset.y + ny * moveA, maxOffsetA);
+          b.offset.x = clampOffset(b.offset.x - nx * moveB, maxOffsetB);
+          b.offset.y = clampOffset(b.offset.y - ny * moveB, maxOffsetB);
         }
       }
     }

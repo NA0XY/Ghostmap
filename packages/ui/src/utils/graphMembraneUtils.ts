@@ -10,7 +10,7 @@ interface MembraneOptions {
 const SINGLE_NODE_RADIUS = 48;
 const TWO_NODE_PADDING = 40;
 const HULL_PADDING = 44;
-const SMOOTHING_TENSION = 0.35;
+const SMOOTHING_TENSION = 0.22;
 
 export function hexAlpha(hex: string, alpha: number): string {
   const rgb = parseHexColor(hex);
@@ -55,7 +55,8 @@ export function buildClusterMembranePath(points: Point[], options?: MembraneOpti
   }
 
   const expanded = expandHull(hull, hullPadding);
-  return smoothClosedBezierPath(expanded, SMOOTHING_TENSION);
+  const softened = chaikinSmooth(expanded, 2);
+  return smoothClosedBezierPath(softened, SMOOTHING_TENSION);
 }
 
 function circlePath(center: Point, radius: number): string {
@@ -203,6 +204,35 @@ function smoothClosedBezierPath(vertices: Point[], tension: number): string {
   }
   parts.push("Z");
   return parts.join(" ");
+}
+
+function chaikinSmooth(points: Point[], iterations: number): Point[] {
+  if (points.length < 3 || iterations <= 0) {
+    return points;
+  }
+
+  let current = [...points];
+  for (let iter = 0; iter < iterations; iter += 1) {
+    const next: Point[] = [];
+    const n = current.length;
+    for (let i = 0; i < n; i += 1) {
+      const a = current[i];
+      const b = current[(i + 1) % n];
+      if (!a || !b) {
+        continue;
+      }
+      next.push({
+        x: a.x * 0.75 + b.x * 0.25,
+        y: a.y * 0.75 + b.y * 0.25,
+      });
+      next.push({
+        x: a.x * 0.25 + b.x * 0.75,
+        y: a.y * 0.25 + b.y * 0.75,
+      });
+    }
+    current = next;
+  }
+  return current;
 }
 
 function polygonPath(points: Point[]): string {
