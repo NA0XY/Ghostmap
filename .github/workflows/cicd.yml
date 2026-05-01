@@ -39,6 +39,12 @@ jobs:
       - name: Build core
         run: pnpm --filter @ghostmap/core build
 
+      - name: Build ui
+        run: pnpm --filter @ghostmap/ui build
+
+      - name: Build worker
+        run: pnpm --filter @ghostmap/worker build
+
       - name: Test core
         run: pnpm --filter @ghostmap/core test
 
