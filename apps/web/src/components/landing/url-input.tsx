@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseGitHubUrl } from "../../lib/github/validate-url";
+import { createClient } from "../../lib/supabase/client";
 import { QueueScreen } from "../queue/queue-screen";
 
 type SubmitPhase =
@@ -21,8 +22,28 @@ const PLACEHOLDER_URLS = [
 export function UrlInput(): React.ReactElement {
   const [url, setUrl] = useState("");
   const [phase, setPhase] = useState<SubmitPhase>({ kind: "idle" });
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   const pendingUrlRef = useRef("");
   const router = useRouter();
+
+  useEffect(() => {
+    const loadUser = async (): Promise<void> => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setIsSignedIn(Boolean(user));
+      } catch {
+        setIsSignedIn(false);
+      } finally {
+        setIsAuthChecked(true);
+      }
+    };
+
+    void loadUser();
+  }, []);
 
   const placeholder = useMemo(() => {
     const index = Math.floor(Math.random() * PLACEHOLDER_URLS.length);
@@ -36,16 +57,22 @@ export function UrlInput(): React.ReactElement {
       setPhase({ kind: "submitting" });
       pendingUrlRef.current = repoUrl;
 
+      let timeout: ReturnType<typeof setTimeout> | null = null;
       try {
+        const controller = new AbortController();
+        timeout = setTimeout(() => controller.abort(), 25_000);
         const response = await fetch("/api/jobs/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             repoUrl,
             features: ["graph"],
             ...(notifyEmail ? { notifyEmail } : {}),
           }),
         });
+        clearTimeout(timeout);
+        timeout = null;
 
         const data = (await response.json()) as {
           jobId?: string;
@@ -54,6 +81,11 @@ export function UrlInput(): React.ReactElement {
           reason?: string;
           error?: string;
         };
+
+        if (response.status === 401) {
+          router.push(`/login?redirectTo=${encodeURIComponent("/")}`);
+          return;
+        }
 
         if (response.status === 202 && data.requiresEmail) {
           setPhase({ kind: "require-email", reason: data.reason ?? "" });
@@ -72,7 +104,16 @@ export function UrlInput(): React.ReactElement {
 
         router.push(`/map/${data.jobId}`);
       } catch (err) {
-        setPhase({ kind: "error", message: "Network error. Please try again." });
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        const isAbortError = err instanceof DOMException && err.name === "AbortError";
+        setPhase({
+          kind: "error",
+          message: isAbortError
+            ? "Request timed out. Please try again."
+            : "Network error. Please try again.",
+        });
         console.error("[url-input] submit error:", err);
       }
     },
@@ -89,8 +130,16 @@ export function UrlInput(): React.ReactElement {
       setPhase({ kind: "error", message: "Please enter a valid GitHub repository URL." });
       return;
     }
+    if (!isAuthChecked) {
+      setPhase({ kind: "error", message: "Checking session, please try again in a moment." });
+      return;
+    }
+    if (!isSignedIn) {
+      router.push(`/login?redirectTo=${encodeURIComponent("/")}`);
+      return;
+    }
     void submit(trimmed);
-  }, [submit, url]);
+  }, [isAuthChecked, isSignedIn, router, submit, url]);
 
   const handleEmailSubmit = useCallback(
     (email: string): void => {
@@ -99,7 +148,7 @@ export function UrlInput(): React.ReactElement {
     [submit],
   );
 
-  const isLoading = phase.kind === "validating" || phase.kind === "submitting";
+  const isLoading = phase.kind === "validating" || phase.kind === "submitting" || !isAuthChecked;
 
   if (phase.kind === "require-email") {
     return (
@@ -174,7 +223,7 @@ export function UrlInput(): React.ReactElement {
             transition: "opacity var(--gm-transition-fast)",
           }}
         >
-          {isLoading ? "Submitting…" : "Map it →"}
+          {!isAuthChecked ? "Checking session…" : isLoading ? "Submitting…" : "Map it →"}
         </button>
       </div>
 

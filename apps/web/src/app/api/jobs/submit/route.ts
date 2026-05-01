@@ -58,20 +58,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } = await supabase.auth.getUser();
 
   const userId = user?.id ?? null;
-  const isAnonymous = userId === null;
-
-  if (isAnonymous && features.some((feature) => feature !== "graph")) {
-    return errorResponse("Sign in to access Ownership, Decay, and Stranger Danger layers.", 403);
+  if (!userId) {
+    return errorResponse("Sign in is required to submit a repository.", 401);
   }
 
-  if (userId) {
-    const limitCheck = await checkUsageLimit(supabase, userId);
-    if (!limitCheck.allowed) {
-      return errorResponse(
-        `Daily limit reached (${limitCheck.currentCount}/${limitCheck.limit} analyses). Resets at midnight UTC.`,
-        429,
-      );
-    }
+  const limitCheck = await checkUsageLimit(supabase, userId);
+  if (!limitCheck.allowed) {
+    return errorResponse(
+      `Daily limit reached (${limitCheck.currentCount}/${limitCheck.limit} analyses). Resets at midnight UTC.`,
+      429,
+    );
   }
 
   let meta;
@@ -90,10 +86,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       `This repository has over ${getMaxFileCount().toLocaleString()} files and cannot be analysed on the web app. Use the npm package to run it locally on your own machine.`,
       422,
     );
-  }
-
-  if (meta.isPrivate && !user) {
-    return errorResponse("Sign in to analyse private repositories.", 403);
   }
 
   const { classification, reason } = classifyJob(meta, features);
@@ -137,19 +129,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (insertError || !job) {
     console.error("[submit] Failed to insert job:", insertError?.message);
-    if (!serviceRoleClient && userId === null) {
-      console.error(
-        "[submit] Anonymous insert attempted without SUPABASE_SERVICE_ROLE_KEY; check RLS policy or set service-role secret.",
-      );
-    }
     return errorResponse("Failed to create job. Please try again.", 500);
   }
 
   const jobId = job.id;
 
-  if (userId) {
-    await incrementUsage(supabase, userId);
-  }
+  await incrementUsage(supabase, userId);
 
   const workerUrl = process.env["WORKER_INTERNAL_URL"];
   const workerSecret = process.env["WORKER_SECRET"];
