@@ -4,6 +4,7 @@ import { parseGitHubUrl } from "../../../../lib/github/validate-url";
 import { fetchRepoMeta, GitHubError } from "../../../../lib/github/repo-meta";
 import { createServerSupabaseClient } from "../../../../lib/supabase/server";
 import { checkUsageLimit, incrementUsage } from "../../../../lib/jobs/limits";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "../../../../lib/supabase/database.types";
 
 export const runtime = "edge";
@@ -28,6 +29,21 @@ interface JobsInsertBuilder {
       single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
     };
   };
+}
+
+function createServiceRoleClient(): SupabaseClient<Database> | null {
+  const url = process.env["NEXT_PUBLIC_SUPABASE_URL"];
+  const serviceRoleKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!url || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient<Database>(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -115,7 +131,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const jobsTable = supabase.from("jobs") as unknown as JobsInsertBuilder;
+  const serviceRoleClient = createServiceRoleClient();
+  const jobsClient = serviceRoleClient ?? supabase;
+  const jobsTable = jobsClient.from("jobs") as unknown as JobsInsertBuilder;
   const { data: job, error: insertError } = await jobsTable
     .insert({
       user_id: userId,
@@ -134,6 +152,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (insertError || !job) {
     console.error("[submit] Failed to insert job:", insertError?.message);
+    if (!serviceRoleClient && userId === null) {
+      console.error(
+        "[submit] Anonymous insert attempted without SUPABASE_SERVICE_ROLE_KEY; check RLS policy or set service-role secret.",
+      );
+    }
     return errorResponse("Failed to create job. Please try again.", 500);
   }
 
