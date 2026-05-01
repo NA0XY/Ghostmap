@@ -5,6 +5,8 @@ import React from "react";
 import { JobList } from "../../components/dashboard/job-list";
 import { createServerSupabaseClient } from "../../lib/supabase/server";
 
+export const runtime = "edge";
+
 export const metadata: Metadata = {
   title: "Dashboard — Ghostmap",
 };

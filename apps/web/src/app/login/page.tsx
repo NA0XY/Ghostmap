@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import React from "react";
 import { LoginButton } from "../../components/auth/login-button";
 
+export const runtime = "edge";
+
 export const metadata: Metadata = {
   title: "Sign In — Ghostmap",
 };

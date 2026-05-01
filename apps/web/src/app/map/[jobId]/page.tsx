@@ -7,6 +7,8 @@ import { JobStatusPoller } from "../../../components/queue/job-status-poller";
 import type { JobClassification, JobStatus } from "../../../lib/supabase/database.types";
 import { createServerSupabaseClient } from "../../../lib/supabase/server";
 
+export const runtime = "edge";
+
 interface MapPageProps {
   params: { jobId: string };
 }
