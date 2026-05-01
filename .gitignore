@@ -16,6 +16,10 @@ out/
 
 # Ghostmap cache
 .ghostmap/
+.tmp/
+.phase-check/
+supabase/.temp/
+*.tsbuildinfo
 
 # Test outputs
 coverage/
